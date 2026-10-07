@@ -138,6 +138,12 @@ export function currentSeason(now = new Date()) {
   return seasonOf(now);
 }
 
+// Calendar day in Lisbon as "2026-10-07" (also the <input type="date"> value).
+export function dateKey(value) {
+  const p = zonedParts(value);
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
+}
+
 // Next default kick-off (e.g. Wednesday 21:00) after `after`, skipping
 // any dates in `taken` (array of ISO strings), as a datetime-local value.
 export function nextKickoffInput(after = new Date(), taken = []) {

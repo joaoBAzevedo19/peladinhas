@@ -2,19 +2,22 @@
 import { useData } from './data/DataContext.jsx';
 import { useHashRoute } from './hooks/useHashRoute.js';
 import { Toast } from './components/ui.jsx';
-import { CalendarIcon, HistoryIcon, TableIcon, SettingsIcon } from './components/Icons.jsx';
+import { CalendarIcon, HistoryIcon, TableIcon, SettingsIcon, LogoutIcon } from './components/Icons.jsx';
+import { signOut } from './lib/api/index.js';
 import Upcoming from './pages/Upcoming.jsx';
 import History from './pages/History.jsx';
 import Standings from './pages/Standings.jsx';
 import MatchDetail from './pages/MatchDetail.jsx';
 import MatchForm from './pages/MatchForm.jsx';
+import TeamsForm from './pages/TeamsForm.jsx';
 import Admin from './pages/Admin.jsx';
+import PinLogin from './pages/PinLogin.jsx';
 
 const TABS = [
   { href: '#/jogos', match: ['jogos', 'jogo', 'novo'], label: 'Jogos', Icon: CalendarIcon },
   { href: '#/historico', match: ['historico'], label: 'Histórico', Icon: HistoryIcon },
   { href: '#/classificacao', match: ['classificacao'], label: 'Classificação', Icon: TableIcon },
-  { href: '#/gerir', match: ['gerir'], label: 'Gerir', Icon: SettingsIcon },
+  { href: '#/gerir', match: ['gerir'], label: 'Gerir', Icon: SettingsIcon, adminOnly: true },
 ];
 
 function AdminOnly({ children }) {
@@ -46,6 +49,13 @@ function Routes({ route }) {
         </AdminOnly>
       );
     case 'jogo':
+      if (third === 'equipas') {
+        return (
+          <AdminOnly>
+            <TeamsForm key={second} id={second} />
+          </AdminOnly>
+        );
+      }
       if (third === 'editar' || third === 'resultado') {
         return (
           <AdminOnly>
@@ -61,8 +71,12 @@ function Routes({ route }) {
 
 export default function App() {
   const route = useHashRoute();
-  const { status, error, reload, toast, dismissToast, mode, isAdmin } = useData();
+  const { status, error, reload, toast, dismissToast, mode, isAdmin, session, authReady } = useData();
   const current = route.segments[0] || 'jogos';
+
+  // Everyone enters with a PIN (guest or admin) before seeing the app.
+  if (!authReady) return <p className="loading">A carregar…</p>;
+  if (!session) return <PinLogin />;
 
   return (
     <div className="app">
@@ -75,7 +89,16 @@ export default function App() {
           </svg>
           Peladinhas
         </a>
-        {isAdmin && <span className="admin-pill">Administrador</span>}
+        {isAdmin ? (
+          <span className="admin-pill">Administrador</span>
+        ) : (
+          <div className="topbar-user">
+            <span className="admin-pill">Convidado</span>
+            <button type="button" className="topbar-logout" onClick={signOut} aria-label="Sair">
+              <LogoutIcon />
+            </button>
+          </div>
+        )}
       </header>
 
       {mode === 'demo' && (
@@ -101,7 +124,7 @@ export default function App() {
       <Toast toast={toast} onDismiss={dismissToast} />
 
       <nav className="tabbar" aria-label="Navegação principal">
-        {TABS.map(({ href, match, label, Icon }) => {
+        {TABS.filter((tab) => isAdmin || !tab.adminOnly).map(({ href, match, label, Icon }) => {
           const active = match.includes(current);
           return (
             <a key={href} href={href} className={active ? 'is-active' : ''} aria-current={active ? 'page' : undefined}>

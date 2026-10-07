@@ -1,60 +1,12 @@
-// "Gerir": admin sign-in, players, backups and deleted matches.
+// "Gerir": sign-out, players, backups and deleted matches.
 import { useRef, useState } from 'react';
 import { useData } from '../data/DataContext.jsx';
 import { PageHeader } from '../components/ui.jsx';
 import { PlusIcon } from '../components/Icons.jsx';
-import { api } from '../lib/api/index.js';
+import { signOut } from '../lib/api/index.js';
 import { friendlyError } from '../lib/api/errors.js';
 import { buildBackup, downloadJson, getLastBackup, parseBackup, setLastBackup } from '../lib/backup.js';
 import { formatDate, formatDateTime, formatWeekday } from '../lib/dates.js';
-
-function SignIn({ demo }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  const submit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      await api.signIn(email.trim(), password);
-    } catch (err) {
-      setError(friendlyError(err).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <form className="card" onSubmit={submit}>
-      <h2 className="card-title">Entrar como administrador</h2>
-      <p className="muted">
-        Só o administrador precisa de entrar. Os jogadores veem o calendário, o histórico e a classificação sem conta.
-      </p>
-      {demo && <p className="hint">No modo demonstração, qualquer email e palavra-passe servem.</p>}
-      <label className="field">
-        <span className="field-label">Email</span>
-        <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required={!demo} />
-      </label>
-      <label className="field">
-        <span className="field-label">Palavra-passe</span>
-        <input
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required={!demo}
-        />
-      </label>
-      {error && <p className="form-error" role="alert">{error}</p>}
-      <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
-        {busy ? 'A entrar…' : 'Entrar'}
-      </button>
-    </form>
-  );
-}
 
 function PlayerRow({ player, run }) {
   const [editing, setEditing] = useState(false);
@@ -279,22 +231,19 @@ export default function Admin() {
     <div className="page">
       <PageHeader title="Gerir" />
 
-      {!session && <SignIn demo={mode === 'demo'} />}
-
       {session && !isAdmin && (
         <div className="card">
-          <p>
-            Entraste como <strong>{session.email}</strong>, mas esta conta não é de administrador.
-          </p>
-          <button type="button" className="btn" onClick={() => api.signOut()}>Sair</button>
+          <p>Entraste como <strong>convidado</strong>: podes ver tudo, mas não alterar.</p>
+          <p className="muted">Para gerir, sai e entra com o PIN de administrador.</p>
+          <button type="button" className="btn" onClick={signOut}>Sair</button>
         </div>
       )}
 
       {session && isAdmin && (
         <>
           <p className="signed-in">
-            Entraste como <strong>{session.email}</strong>.{' '}
-            <button type="button" className="link" onClick={() => api.signOut()}>Sair</button>
+            Entraste como <strong>administrador</strong>.{' '}
+            <button type="button" className="link" onClick={signOut}>Sair</button>
           </p>
           <Players players={players} run={run} />
           <Backups raw={raw} run={run} showToast={showToast} mode={mode} />

@@ -69,6 +69,21 @@ create table if not exists public.match_revisions (
 
 create index if not exists match_revisions_match_idx on public.match_revisions (match_id);
 
+-- Seasons registered by the admin (Classificação > Nova época). A season
+-- starts on starts_on and lasts until the next one starts; total_matches is
+-- the number of matches planned for it. Matches before the first registered
+-- season use the automatic September-August seasons.
+create table if not exists public.seasons (
+  id             uuid primary key default gen_random_uuid(),
+  name           text not null check (char_length(btrim(name)) between 1 and 40),
+  total_matches  smallint not null check (total_matches between 1 and 200),
+  starts_on      date not null default current_date,
+  created_at     timestamptz not null default now()
+);
+
+-- Two seasons cannot share the same name (case-insensitive).
+create unique index if not exists seasons_name_key on public.seasons (lower(btrim(name)));
+
 -- Supabase Auth users allowed to write. Add yourself after creating your
 -- user (see README):
 --   insert into public.admins (user_id)
@@ -222,6 +237,7 @@ declare
   v_players int;
   v_matches int;
   v_lineups int;
+  v_seasons int;
 begin
   if not public.is_admin() then
     raise exception 'Sem permissão para restaurar cópias.' using errcode = '42501';
@@ -270,8 +286,16 @@ begin
         goals = excluded.goals, own_goals = excluded.own_goals;
   get diagnostics v_lineups = row_count;
 
+  insert into public.seasons (id, name, total_matches, starts_on, created_at)
+  select r.id, btrim(r.name), r.total_matches, r.starts_on, coalesce(r.created_at, now())
+  from jsonb_populate_recordset(null::public.seasons, coalesce(p_data -> 'seasons', '[]')) as r
+  on conflict (id) do update
+    set name = excluded.name, total_matches = excluded.total_matches,
+        starts_on = excluded.starts_on;
+  get diagnostics v_seasons = row_count;
+
   return jsonb_build_object('players', v_players, 'matches', v_matches,
-                            'match_players', v_lineups);
+                            'match_players', v_lineups, 'seasons', v_seasons);
 end;
 $$;
 
@@ -285,6 +309,7 @@ alter table public.matches         enable row level security;
 alter table public.match_players   enable row level security;
 alter table public.match_revisions enable row level security;
 alter table public.admins          enable row level security;
+alter table public.seasons         enable row level security;
 
 drop policy if exists "players are public" on public.players;
 create policy "players are public" on public.players
@@ -324,15 +349,27 @@ drop policy if exists "admins edit line-ups" on public.match_players;
 create policy "admins edit line-ups" on public.match_players
   for update to authenticated using (public.is_admin()) with check (public.is_admin());
 
+drop policy if exists "seasons are public" on public.seasons;
+create policy "seasons are public" on public.seasons
+  for select to anon, authenticated using (true);
+
+drop policy if exists "admins add seasons" on public.seasons;
+create policy "admins add seasons" on public.seasons
+  for insert to authenticated with check (public.is_admin());
+
+drop policy if exists "admins edit seasons" on public.seasons;
+create policy "admins edit seasons" on public.seasons
+  for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
 drop policy if exists "admins read revisions" on public.match_revisions;
 create policy "admins read revisions" on public.match_revisions
   for select to authenticated using (public.is_admin());
 
 -- Explicit privileges (no DELETE for API roles on any table).
 revoke all on public.players, public.matches, public.match_players,
-              public.match_revisions, public.admins from anon, authenticated;
-grant select on public.players, public.matches, public.match_players to anon, authenticated;
-grant insert, update on public.players, public.matches, public.match_players to authenticated;
+              public.match_revisions, public.admins, public.seasons from anon, authenticated;
+grant select on public.players, public.matches, public.match_players, public.seasons to anon, authenticated;
+grant insert, update on public.players, public.matches, public.match_players, public.seasons to authenticated;
 grant select on public.match_revisions to authenticated;
 
 revoke execute on function public.is_admin(), public.save_match(jsonb, jsonb),
@@ -344,3 +381,6 @@ grant execute on function public.save_match(jsonb, jsonb) to authenticated;
 grant execute on function public.import_backup(jsonb) to authenticated;
 
 commit;
+
+-- Make the API see new tables and functions right away.
+notify pgrst, 'reload schema';

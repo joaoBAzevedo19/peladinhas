@@ -2,8 +2,12 @@
 
 Webapp para gerir as peladinhas (futebol 5 contra 5 entre amigos): calendário com convocados e confirmações, histórico de jogos com resultados e marcadores, e classificação por jogador.
 
-- **Jogadores:** abrem o link no telemóvel e veem tudo, sem conta.
-- **Administrador:** entra em *Gerir* com email e palavra-passe para marcar jogos, registar resultados e gerir jogadores.
+Ao abrir a app aparece um ecrã de **PIN** (6 algarismos):
+
+- **Jogadores:** entram com o PIN de convidado e veem tudo. Só leitura.
+- **Administrador:** entra com o PIN de administrador para marcar jogos, registar resultados e gerir jogadores.
+
+Para trocar de perfil: o administrador usa *Gerir > Sair*; o convidado usa o ícone de sair no canto superior direito. Ambos voltam ao ecrã de PIN.
 
 Stack: React + Vite (frontend), Supabase (base de dados e login), GitHub Pages (alojamento). Tudo nos planos gratuitos.
 
@@ -18,7 +22,9 @@ npm install
 npm run dev
 ```
 
-Abre o endereço que aparece (normalmente http://localhost:5173). Sem chaves do Supabase, a app arranca em **modo demonstração**: tem dados de exemplo, guarda tudo só nesse browser e em *Gerir* aceita qualquer email e palavra-passe.
+Abre o endereço que aparece (normalmente http://localhost:5173). Sem chaves do Supabase, a app arranca em **modo demonstração**: tem dados de exemplo, guarda tudo só nesse browser e os PIN são `000000` (convidado) e `111111` (administrador).
+
+Se já tiveres o `.env.local` preenchido, `npm run dev` liga-se ao Supabase e esses PIN não funcionam (lá valem os PIN das contas do ponto 2.2). Para usar o modo demonstração na mesma, corre `npm run dev:demo`.
 
 `npm test` corre os testes das regras de pontuação e das datas.
 
@@ -29,15 +35,21 @@ Abre o endereço que aparece (normalmente http://localhost:5173). Sem chaves do 
 1. Cria uma conta em [supabase.com](https://supabase.com) e um projeto novo (região na Europa, por exemplo Frankfurt ou Irlanda). Guarda a palavra-passe da base de dados.
 2. No projeto, abre **SQL Editor**, cola o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e carrega em **Run**.
 
-### 2.2 Conta de administrador
+### 2.2 Contas do PIN (convidado e administrador)
 
-1. Em **Authentication > Users**, carrega em **Add user > Create new user**, indica o teu email e uma palavra-passe e marca **Auto Confirm User**.
-2. No **SQL Editor**, corre (com o teu email):
+Cada PIN é a palavra-passe de uma conta do Supabase. Os emails das contas estão em `PIN_ACCOUNTS`, em [`src/lib/config.js`](src/lib/config.js). São emails fictícios (`example.com`), porque o repositório é público.
+
+1. Em **Authentication > Users**, carrega em **Add user > Create new user** e cria as duas contas, ambas com **Auto Confirm User** marcado:
+   - `peladinhas.convidado@example.com`, com o PIN de convidado como palavra-passe (6 algarismos);
+   - `peladinhas.admin@example.com`, com o PIN de administrador como palavra-passe (6 algarismos, diferente do de convidado).
+2. No **SQL Editor**, dá permissões de administrador **só** à conta de administrador:
 
    ```sql
    insert into public.admins (user_id)
-   select id from auth.users where email = 'o-teu-email@exemplo.pt';
+   select id from auth.users where email = 'peladinhas.admin@example.com';
    ```
+
+   Para mudar um PIN, muda a palavra-passe da conta em **Authentication > Users**.
 
 3. Nas definições de **Authentication** (secção de registos de utilizadores), desliga **Allow new users to sign up**. Não é obrigatório, porque quem não está na tabela `admins` não consegue alterar nada, mas evita contas inúteis.
 
@@ -69,8 +81,9 @@ Nota: com uma conta GitHub gratuita, o repositório tem de ser público para usa
 
 1. **Marcar o jogo:** *Jogos > Novo jogo*. A data vem preenchida com a próxima quarta-feira às 21:00 e os convocados do último jogo.
 2. **Confirmações:** abre o jogo e toca no nome de quem confirmou.
-3. **Depois do jogo:** *Registar resultado*, põe cada jogador na equipa A ou B, indica os golos e guarda. A classificação atualiza-se sozinha.
-4. **Cópia de segurança:** *Gerir > Descarregar cópia* e guarda o ficheiro (por exemplo no Google Drive). A app lembra-te se passarem mais de 7 dias.
+3. **Equipas:** quando todos os convocados confirmarem, o botão *Gerar equipas* fica ativo. Carrega em *Sortear equipas* para dividir os jogadores ao acaso em duas equipas do mesmo tamanho (com número ímpar, uma fica com mais um), ou põe cada jogador na equipa A ou B à mão. Podes sortear de novo ou acertar à mão antes de carregar em *Confirmar equipas*. O jogo passa a mostrar as equipas (podes mudá-las em *Alterar equipas*). Se convocares alguém novo depois disso, voltas a ter de gerar as equipas.
+4. **Depois do jogo:** *Registar resultado* (as equipas já vêm preenchidas), indica os golos e guarda. A classificação atualiza-se sozinha.
+5. **Cópia de segurança:** *Gerir > Descarregar cópia* e guarda o ficheiro (por exemplo no Google Drive). A app lembra-te se passarem mais de 7 dias.
 
 ## 4. Como os dados ficam protegidos
 

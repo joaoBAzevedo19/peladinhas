@@ -1,5 +1,5 @@
 // Small shared interface pieces.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BackIcon, MinusIcon, PlusIcon } from './Icons.jsx';
 import { RESULT_LABEL, RESULT_NAME } from '../lib/stats.js';
 import { PLAYERS_PER_MATCH } from '../lib/config.js';
@@ -110,6 +110,37 @@ export function ConfirmButton({ children, confirmLabel, onConfirm, className = '
     <button type="button" className={className} onClick={() => setArmed(true)}>
       {children}
     </button>
+  );
+}
+
+// Pop-up window (native <dialog>). Closes with Esc, the × button or a tap
+// outside the box.
+export function Dialog({ open, onClose, title, children }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
+  return (
+    <dialog
+      ref={ref}
+      className="dialog"
+      aria-label={title}
+      onClose={onClose}
+      onClick={(e) => e.target === ref.current && onClose()}
+    >
+      {open && (
+        <div className="dialog-box">
+          <div className="dialog-head">
+            <h2 className="dialog-title">{title}</h2>
+            <button type="button" className="dialog-close" onClick={onClose} aria-label="Fechar">×</button>
+          </div>
+          {children}
+        </div>
+      )}
+    </dialog>
   );
 }
 

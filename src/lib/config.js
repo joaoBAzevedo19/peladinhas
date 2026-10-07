@@ -21,3 +21,14 @@ export const BACKUP_REMINDER_DAYS = 7;
 
 // A scheduled match counts as "waiting for result" this long after kick-off.
 export const RESULT_GRACE_HOURS = 2;
+
+// Entry PIN: the app opens on a PIN screen. Each PIN is the password of one
+// Supabase account (Authentication > Users). The guest only views; the admin
+// account must also be listed in public.admins. Supabase passwords need at
+// least 6 characters, hence 6 digits. Placeholder emails at example.com keep
+// personal data out of this public repository.
+export const PIN_LENGTH = 6;
+export const PIN_ACCOUNTS = {
+  guest: 'peladinhas.convidado@example.com',
+  admin: 'peladinhas.admin@example.com',
+};

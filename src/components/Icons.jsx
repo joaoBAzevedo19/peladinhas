@@ -41,6 +41,13 @@ export const SettingsIcon = (props) => (
   </svg>
 );
 
+export const LogoutIcon = (props) => (
+  <svg {...base} {...props}>
+    <path d="M9.5 20.5H5a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 5 3.5h4.5" />
+    <path d="M16 16.5 20.5 12 16 7.5M20.5 12H9.5" />
+  </svg>
+);
+
 export const ChevronRight = (props) => (
   <svg {...base} width={18} height={18} {...props}>
     <path d="m9 6 6 6-6 6" />
@@ -76,6 +83,12 @@ export const BallIcon = (props) => (
     <circle cx="12" cy="12" r="9" />
     <path d="m12 7.5 4 2.9-1.5 4.7h-5L8 10.4 12 7.5Z" />
     <path d="M12 3v4.5M21 10l-5 .4M17.5 19.5l-3-4.4M6.5 19.5l3-4.4M3 10l5 .4" />
+  </svg>
+);
+
+export const ShuffleIcon = (props) => (
+  <svg {...base} width={18} height={18} {...props}>
+    <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
   </svg>
 );
 

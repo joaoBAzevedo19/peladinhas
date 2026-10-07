@@ -10,10 +10,11 @@ const DataContext = createContext(null);
 const byName = (a, b) => a.name.localeCompare(b.name, 'pt');
 
 export function DataProvider({ children }) {
-  const [data, setData] = useState({ players: [], matches: [], match_players: [] });
+  const [data, setData] = useState({ players: [], matches: [], match_players: [], seasons: [] });
   const [status, setStatus] = useState('loading'); // loading | ready | error
   const [error, setError] = useState(null);
   const [session, setSession] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [toast, setToast] = useState(null);
   const toastTimer = useRef(null);
@@ -40,7 +41,14 @@ export function DataProvider({ children }) {
   // Session and admin status.
   useEffect(() => {
     let active = true;
-    api.getSession().then((s) => active && setSession(s));
+    api.getSession().then(
+      (s) => {
+        if (!active) return;
+        setSession(s);
+        setAuthReady(true);
+      },
+      () => active && setAuthReady(true),
+    );
     const unsubscribe = api.onAuthChange((s) => setSession(s));
     return () => {
       active = false;
@@ -100,7 +108,8 @@ export function DataProvider({ children }) {
       rows.sort((a, b) => byName(playersById.get(a.player_id) ?? { name: '' }, playersById.get(b.player_id) ?? { name: '' }));
     }
     const locations = [...new Set(visibleMatches.map((m) => m.location).filter(Boolean))].reverse();
-    return { players, playersById, matches: visibleMatches, allMatches: matches, deletedMatches, lineupsByMatch, locations };
+    const seasons = data.seasons ?? [];
+    return { players, playersById, matches: visibleMatches, allMatches: matches, deletedMatches, lineupsByMatch, locations, seasons };
   }, [data]);
 
   const value = {
@@ -109,6 +118,7 @@ export function DataProvider({ children }) {
     status,
     error,
     session,
+    authReady,
     isAdmin,
     mode: api.mode,
     reload,

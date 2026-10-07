@@ -1,7 +1,7 @@
 // Scoring and standings. The table is always computed from the match
 // records, so it can never get out of sync with the history.
 import { POINTS } from './config.js';
-import { seasonOf } from './dates.js';
+import { dateKey, seasonOf } from './dates.js';
 
 export const RESULT_LABEL = { win: 'V', draw: 'E', loss: 'D' };
 export const RESULT_NAME = { win: 'Vitória', draw: 'Empate', loss: 'Derrota' };
@@ -46,10 +46,67 @@ export function scoreMismatch(match, lineup) {
   return issues.length ? issues : null;
 }
 
-// Seasons that have at least one played match, newest first.
-export function listSeasons(matches) {
-  const set = new Set(matches.filter(isPlayed).map((m) => seasonOf(m.starts_at)));
-  return [...set].sort().reverse();
+// Before kick-off, teams can be picked once every called-up player has
+// confirmed (at least two, one per side).
+export function canPickTeams(lineup) {
+  return lineup.length >= 2 && lineup.every((e) => e.confirmed);
+}
+
+// Teams count as confirmed when every called-up player is on a side and
+// both sides have someone. Calling up someone new reopens the team pick.
+export function teamsConfirmed(lineup) {
+  return (
+    lineup.length >= 2 &&
+    lineup.every((e) => e.team === 'A' || e.team === 'B') &&
+    lineup.some((e) => e.team === 'A') &&
+    lineup.some((e) => e.team === 'B')
+  );
+}
+
+// Random draw of two teams of equal size: { [playerId]: 'A' | 'B' }. With an
+// odd number of players, the side that gets the extra one is also drawn.
+// `random` returns a number in [0, 1), like Math.random (injectable for tests).
+export function drawTeams(playerIds, random = Math.random) {
+  const ids = [...playerIds];
+  for (let i = ids.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+  const extraToA = ids.length % 2 === 1 && random() < 0.5;
+  const sizeA = Math.floor(ids.length / 2) + (extraToA ? 1 : 0);
+  return Object.fromEntries(ids.map((id, i) => [id, i < sizeA ? 'A' : 'B']));
+}
+
+// Registered seasons, latest start first (ties: latest created first).
+function sortSeasons(seasons) {
+  return [...seasons].sort(
+    (a, b) => b.starts_on.localeCompare(a.starts_on) || (b.created_at || '').localeCompare(a.created_at || ''),
+  );
+}
+
+// Season a match belongs to. A registered season (Classificação > Nova
+// época) runs from its starts_on until the next one starts; matches before
+// the first registered season keep the automatic label ("2025/26").
+// Returns the season id or the automatic label.
+export function seasonKeyOf(match, seasons = []) {
+  const day = dateKey(match.starts_at);
+  const found = sortSeasons(seasons).find((s) => s.starts_on <= day);
+  return found ? found.id : seasonOf(match.starts_at);
+}
+
+// Seasons for the filters, newest first: every registered season, then the
+// automatic ones that have at least one played match.
+// Each item: {key, label, total_matches?, starts_on?}
+export function listSeasons(matches, seasons = []) {
+  const registered = sortSeasons(seasons).map((s) => ({
+    key: s.id,
+    label: s.name,
+    total_matches: s.total_matches,
+    starts_on: s.starts_on,
+  }));
+  const ids = new Set(registered.map((s) => s.key));
+  const auto = new Set(matches.filter(isPlayed).map((m) => seasonKeyOf(m, seasons)).filter((k) => !ids.has(k)));
+  return [...registered, ...[...auto].sort().reverse().map((key) => ({ key, label: key }))];
 }
 
 function emptyRow(player) {
@@ -67,13 +124,14 @@ function emptyRow(player) {
   };
 }
 
-// Per-player totals for the given matches. `season` = null means all seasons.
-export function computeStandings({ matches, lineupsByMatch, playersById, season = null }) {
+// Per-player totals for the given matches. `season` (a key from
+// listSeasons) = null means all seasons.
+export function computeStandings({ matches, lineupsByMatch, playersById, season = null, seasons = [] }) {
   const rows = new Map();
 
   for (const match of matches) {
     if (!isPlayed(match)) continue;
-    if (season && seasonOf(match.starts_at) !== season) continue;
+    if (season && seasonKeyOf(match, seasons) !== season) continue;
 
     for (const entry of lineupsByMatch.get(match.id) || []) {
       const result = resultForTeam(match, entry.team);

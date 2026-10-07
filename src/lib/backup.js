@@ -4,7 +4,7 @@ import { AppError } from './api/errors.js';
 
 const LAST_BACKUP_KEY = 'peladinhas-last-backup';
 
-export function buildBackup({ players, matches, match_players }) {
+export function buildBackup({ players, matches, match_players, seasons }) {
   return {
     app: 'peladinhas',
     version: 1,
@@ -12,6 +12,7 @@ export function buildBackup({ players, matches, match_players }) {
     players,
     matches,
     match_players,
+    seasons,
   };
 }
 
@@ -28,6 +29,8 @@ export function parseBackup(text) {
     Array.isArray(data.matches) &&
     Array.isArray(data.match_players);
   if (!ok) throw new AppError('O ficheiro não é uma cópia da Peladinhas.');
+  // Copies made before seasons could be registered have no seasons.
+  if (!Array.isArray(data.seasons)) data.seasons = [];
   return data;
 }
 

@@ -108,6 +108,15 @@ function MatchFormInner({ id, mode }) {
       entries: { ...f.entries, [playerId]: { ...(f.entries[playerId] || emptyEntry()), ...patch } },
     }));
   };
+  const confirmAllCalled = () => {
+    setError('');
+    setForm((f) => ({
+      ...f,
+      entries: Object.fromEntries(
+        Object.entries(f.entries).map(([id, e]) => [id, e.called ? { ...e, confirmed: true } : e]),
+      ),
+    }));
+  };
   const startsIso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(form.startsAt) ? localInputToIso(form.startsAt) : null;
 
   // Players listed in the form: active ones plus anyone already in the line-up.
@@ -260,6 +269,11 @@ function MatchFormInner({ id, mode }) {
             ? 'Toca em A ou B para pôr cada jogador numa equipa e depois indica os golos.'
             : 'Toca no nome para convocar. Marca “Confirmou” quando o jogador confirmar.'}
         </p>
+        {!played && confirmedCount < calledCount && (
+          <button type="button" className="btn btn-block callups-all" onClick={confirmAllCalled}>
+            <CheckIcon /> Confirmar todos ({calledCount - confirmedCount})
+          </button>
+        )}
 
         <ul className="player-list">
           {visible.map((p) => {
@@ -290,7 +304,9 @@ function MatchFormInner({ id, mode }) {
                   type="button"
                   className={`prow-name ${e.called ? 'is-on' : ''}`}
                   aria-pressed={e.called}
-                  onClick={() => setEntry(p.id, { called: !e.called, confirmed: e.called ? false : e.confirmed })}
+                  onClick={() =>
+                    setEntry(p.id, e.called ? { called: false, confirmed: false, team: null } : { called: true })
+                  }
                 >
                   <span className="tick">{e.called && <CheckIcon />}</span>
                   {p.name}

@@ -1,13 +1,15 @@
-// Match page: scoreboard for played matches, call-up list for scheduled ones,
-// and the admin actions.
+// Match page: scoreboard for played matches; call-up list or confirmed teams
+// for scheduled ones; and the admin actions.
 import { useState } from 'react';
 import { useData } from '../data/DataContext.jsx';
 import { PageHeader, Empty, ConfirmButton, TeamTag } from '../components/ui.jsx';
 import { BallIcon, CheckIcon, AlertIcon } from '../components/Icons.jsx';
 import { formatDate, formatTime, formatWeekday, formatDateTime } from '../lib/dates.js';
-import { resultForTeam, scoreMismatch } from '../lib/stats.js';
+import { resultForTeam, scoreMismatch, canPickTeams, teamsConfirmed } from '../lib/stats.js';
+import { navigate } from '../hooks/useHashRoute.js';
 
 const STATUS_LABEL = { scheduled: 'Agendado', played: 'Jogado', cancelled: 'Cancelado' };
+const ALL = 'all';
 
 const toPayload = (lineup) =>
   lineup.map(({ player_id, team, confirmed, goals, own_goals }) => ({ player_id, team, confirmed, goals, own_goals }));
@@ -66,21 +68,62 @@ function Scoreboard({ match, lineup, playersById }) {
   );
 }
 
+// Teams picked before kick-off (scheduled match, every player on a side).
+function Teams({ match, lineup, playersById, isAdmin }) {
+  const name = (e) => playersById.get(e.player_id)?.name ?? '?';
+  return (
+    <section className="section">
+      <h2 className="section-title">Equipas</h2>
+      <div className="teams">
+        {['A', 'B'].map((team) => {
+          const players = lineup.filter((e) => e.team === team);
+          return (
+            <div key={team}>
+              <p className={`teams-head team-${team.toLowerCase()}`}>
+                Equipa {team} <span className="muted">{players.length}</span>
+              </p>
+              <ul className={`team-list team-${team.toLowerCase()}`} aria-label={`Equipa ${team}`}>
+                {players.map((e) => (
+                  <li key={e.player_id}>
+                    <span className="team-player">{name(e)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+      {isAdmin && (
+        <p className="hint teams-change">
+          <a className="link" href={`#/jogo/${match.id}/equipas`}>Alterar equipas</a>
+        </p>
+      )}
+    </section>
+  );
+}
+
 function CallUps({ match, lineup, playersById, isAdmin, run }) {
   const [busy, setBusy] = useState(null);
   const confirmed = lineup.filter((e) => e.confirmed).length;
   const name = (e) => playersById.get(e.player_id)?.name ?? '?';
 
-  const toggle = async (entry) => {
-    setBusy(entry.player_id);
+  const editable = isAdmin && match.status === 'scheduled';
+  const pending = lineup.length - confirmed;
+
+  // busy holds the player being saved, or ALL while confirming everyone.
+  const save = async (key, action, successMessage) => {
+    setBusy(key);
     try {
-      await run((api) => api.setConfirmed(match.id, entry.player_id, !entry.confirmed));
+      await run(action, successMessage);
     } catch {
       // Error already shown in the toast.
     } finally {
       setBusy(null);
     }
   };
+  const toggle = (entry) =>
+    save(entry.player_id, (api) => api.setConfirmed(match.id, entry.player_id, !entry.confirmed));
+  const confirmAll = () => save(ALL, (api) => api.confirmAll(match.id), 'Todos os convocados confirmados.');
 
   if (lineup.length === 0) {
     return (
@@ -95,8 +138,15 @@ function CallUps({ match, lineup, playersById, isAdmin, run }) {
       <h2 className="section-title">
         Convocados <span className="muted">{confirmed} de {lineup.length} confirmados</span>
       </h2>
-      {isAdmin && match.status === 'scheduled' && (
-        <p className="hint">Toca num jogador para marcar ou desmarcar a confirmação.</p>
+      {editable && (
+        <>
+          <p className="hint">Toca num jogador para marcar ou desmarcar a confirmação.</p>
+          {pending > 0 && (
+            <button type="button" className="btn btn-block callups-all" disabled={busy !== null} onClick={confirmAll}>
+              <CheckIcon /> {busy === ALL ? 'A confirmar…' : `Confirmar todos (${pending})`}
+            </button>
+          )}
+        </>
       )}
       <ul className="list callups">
         {lineup.map((e) => {
@@ -118,12 +168,12 @@ function CallUps({ match, lineup, playersById, isAdmin, run }) {
           );
           return (
             <li key={e.player_id}>
-              {isAdmin && match.status === 'scheduled' ? (
+              {editable ? (
                 <button
                   type="button"
                   className="row callup"
                   aria-pressed={e.confirmed}
-                  disabled={busy === e.player_id}
+                  disabled={busy === e.player_id || busy === ALL}
                   onClick={() => toggle(e)}
                 >
                   {content}
@@ -158,6 +208,9 @@ export default function MatchDetail({ id }) {
   const played = match.status === 'played';
   const back = match.status === 'scheduled' ? '#/jogos' : '#/historico';
   const mismatch = played ? scoreMismatch(match, lineup) : null;
+  const scheduled = match.status === 'scheduled';
+  const hasTeams = scheduled && teamsConfirmed(lineup);
+  const teamsAllowed = canPickTeams(lineup);
 
   const setStatus = (status, message) =>
     run((api) => api.saveMatch({ ...match, status }, toPayload(lineup)), message).catch(() => {});
@@ -183,6 +236,8 @@ export default function MatchDetail({ id }) {
 
       {played ? (
         <Scoreboard match={match} lineup={lineup} playersById={playersById} />
+      ) : hasTeams ? (
+        <Teams match={match} lineup={lineup} playersById={playersById} isAdmin={isAdmin} />
       ) : (
         <CallUps match={match} lineup={lineup} playersById={playersById} isAdmin={isAdmin} run={run} />
       )}
@@ -215,8 +270,26 @@ export default function MatchDetail({ id }) {
             </button>
           ) : (
             <>
-              {match.status === 'scheduled' && (
+              {hasTeams && (
                 <a className="btn btn-primary" href={`#/jogo/${match.id}/resultado`}>Registar resultado</a>
+              )}
+              {scheduled && !hasTeams && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={!teamsAllowed}
+                    aria-describedby={teamsAllowed ? undefined : 'teams-locked'}
+                    onClick={() => navigate(`/jogo/${match.id}/equipas`)}
+                  >
+                    Gerar equipas
+                  </button>
+                  {!teamsAllowed && (
+                    <p id="teams-locked" className="hint actions-hint">
+                      Fica disponível quando todos os convocados tiverem confirmado.
+                    </p>
+                  )}
+                </>
               )}
               {played && <a className="btn btn-primary" href={`#/jogo/${match.id}/editar`}>Editar resultado</a>}
               {match.status === 'cancelled' && (
@@ -225,7 +298,7 @@ export default function MatchDetail({ id }) {
                 </button>
               )}
               {!played && <a className="btn" href={`#/jogo/${match.id}/editar`}>Editar jogo</a>}
-              {match.status === 'scheduled' && (
+              {scheduled && !hasTeams && (
                 <ConfirmButton className="btn" confirmLabel="Confirmar cancelamento" onConfirm={() => setStatus('cancelled', 'Jogo cancelado.')}>
                   Cancelar jogo
                 </ConfirmButton>

@@ -3,6 +3,8 @@
 // nothing can be deleted through the API.
 import { createClient } from '@supabase/supabase-js';
 import { friendlyError, AppError } from './errors.js';
+import { PIN_ACCOUNTS } from '../config.js';
+import { checkPin } from './pin.js';
 
 // Supabase returns at most 1000 rows per request, so tables are read in pages.
 const PAGE_SIZE = 1000;
@@ -29,12 +31,15 @@ export function createSupabaseApi(url, key) {
 
     async loadAll() {
       try {
-        const [players, matches, match_players] = await Promise.all([
+        const [players, matches, match_players, seasons] = await Promise.all([
           fetchAll('players', ['id']),
           fetchAll('matches', ['id']),
           fetchAll('match_players', ['match_id', 'player_id']),
+          // Until schema.sql is run again the table is missing: show no
+          // registered seasons instead of failing the whole app.
+          fetchAll('seasons', ['id']).catch(() => []),
         ]);
-        return { players, matches, match_players };
+        return { players, matches, match_players, seasons };
       } catch (error) {
         if (/ligação/.test(error.message)) {
           throw new AppError(
@@ -56,9 +61,15 @@ export function createSupabaseApi(url, key) {
       return () => data.subscription.unsubscribe();
     },
 
-    async signIn(email, password) {
-      const { error } = await client.auth.signInWithPassword({ email, password });
-      if (error) throw friendlyError(error);
+    // The PIN is the password of the guest or the admin account: try both.
+    async signInWithPin(pin) {
+      checkPin(pin);
+      for (const email of [PIN_ACCOUNTS.guest, PIN_ACCOUNTS.admin]) {
+        const { error } = await client.auth.signInWithPassword({ email, password: pin });
+        if (!error) return;
+        if (!/invalid login credentials/i.test(error.message)) throw friendlyError(error);
+      }
+      throw new AppError('PIN incorreto.');
     },
 
     async signOut() {
@@ -83,6 +94,17 @@ export function createSupabaseApi(url, key) {
       if (!data.length) throw new AppError('Sem permissão. Entra como administrador em Gerir.');
     },
 
+    // season: {name, total_matches, starts_on ("2026-10-07")}
+    async addSeason(season) {
+      const { data, error } = await client
+        .from('seasons')
+        .insert({ name: season.name.trim(), total_matches: season.total_matches, starts_on: season.starts_on })
+        .select()
+        .single();
+      if (error) throw friendlyError(error);
+      return data;
+    },
+
     // match: {id?, starts_at, location, status, score_a, score_b, notes}
     // players: [{player_id, team, confirmed, goals, own_goals}]
     async saveMatch(match, players) {
@@ -97,6 +119,17 @@ export function createSupabaseApi(url, key) {
         .update({ confirmed })
         .eq('match_id', matchId)
         .eq('player_id', playerId)
+        .select();
+      if (error) throw friendlyError(error);
+      if (!data.length) throw new AppError('Sem permissão. Entra como administrador em Gerir.');
+    },
+
+    // One UPDATE over the whole call-up, so it is atomic.
+    async confirmAll(matchId) {
+      const { data, error } = await client
+        .from('match_players')
+        .update({ confirmed: true })
+        .eq('match_id', matchId)
         .select();
       if (error) throw friendlyError(error);
       if (!data.length) throw new AppError('Sem permissão. Entra como administrador em Gerir.');

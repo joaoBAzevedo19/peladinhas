@@ -3,11 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useData } from '../data/DataContext.jsx';
 import { PageHeader, Empty } from '../components/ui.jsx';
 import { PlayedRow } from '../components/MatchRows.jsx';
-import { formatMonthYear, monthKey, seasonOf } from '../lib/dates.js';
-import { listSeasons, playerSummary } from '../lib/stats.js';
+import { formatMonthYear, monthKey } from '../lib/dates.js';
+import { listSeasons, playerSummary, seasonKeyOf } from '../lib/stats.js';
 
 export default function History({ query }) {
-  const { matches, lineupsByMatch, playersById, players } = useData();
+  const { matches, lineupsByMatch, playersById, players, seasons: registered } = useData();
   const [season, setSeason] = useState(query.epoca || '');
   const [playerId, setPlayerId] = useState(query.jogador || '');
 
@@ -17,19 +17,19 @@ export default function History({ query }) {
     if (query.epoca !== undefined) setSeason(query.epoca);
   }, [query.jogador, query.epoca]);
 
-  const seasons = listSeasons(matches);
+  const seasons = listSeasons(matches, registered);
 
   const filtered = useMemo(() => {
     return matches
       .filter((m) => m.status === 'played' || m.status === 'cancelled')
-      .filter((m) => !season || seasonOf(m.starts_at) === season)
+      .filter((m) => !season || seasonKeyOf(m, registered) === season)
       .filter((m) => {
         if (!playerId) return true;
         if (m.status !== 'played') return false;
         return (lineupsByMatch.get(m.id) || []).some((e) => e.player_id === playerId && e.team);
       })
       .reverse();
-  }, [matches, lineupsByMatch, season, playerId]);
+  }, [matches, lineupsByMatch, season, playerId, registered]);
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -56,7 +56,7 @@ export default function History({ query }) {
           <select value={season} onChange={(e) => setSeason(e.target.value)}>
             <option value="">Todas as épocas</option>
             {seasons.map((s) => (
-              <option key={s} value={s}>{s}</option>
+              <option key={s.key} value={s.key}>{s.label}</option>
             ))}
           </select>
         </label>

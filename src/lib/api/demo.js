@@ -2,6 +2,8 @@
 // this browser (localStorage). Used when no Supabase keys are configured.
 import { buildSeed, uid } from './seed.js';
 import { AppError } from './errors.js';
+import { PIN_ACCOUNTS } from '../config.js';
+import { checkPin } from './pin.js';
 
 const STORAGE_KEY = 'peladinhas-demo-v1';
 const SESSION_KEY = 'peladinhas-demo-session';
@@ -23,6 +25,9 @@ function writeStorage(key, value) {
   }
 }
 
+// Fixed PINs for the demo, shown on the PIN screen.
+export const DEMO_PINS = { guest: '000000', admin: '111111' };
+
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const delay = () => new Promise((resolve) => setTimeout(resolve, 120));
 
@@ -37,13 +42,16 @@ export function createDemoApi() {
     db = buildSeed();
     writeStorage(STORAGE_KEY, JSON.stringify(db));
   }
+  db.seasons ??= [];
 
   let session = readStorage(SESSION_KEY) ? { email: readStorage(SESSION_KEY) } : null;
   const listeners = new Set();
 
   const persist = () => writeStorage(STORAGE_KEY, JSON.stringify(db));
+  // Sessions saved before the PIN screen (any email) count as admin.
+  const sessionIsAdmin = () => Boolean(session) && session.email !== PIN_ACCOUNTS.guest;
   const requireAdmin = () => {
-    if (!session) throw new AppError('Sem permissão. Entra como administrador em Gerir.');
+    if (!sessionIsAdmin()) throw new AppError('Sem permissão. Entra como administrador em Gerir.');
   };
   const nameTaken = (name, exceptId) =>
     db.players.some((p) => p.id !== exceptId && p.name.trim().toLowerCase() === name.trim().toLowerCase());
@@ -53,12 +61,13 @@ export function createDemoApi() {
 
     async loadAll() {
       await delay();
-      const visible = session ? db.matches : db.matches.filter((m) => !m.deleted_at);
+      const visible = sessionIsAdmin() ? db.matches : db.matches.filter((m) => !m.deleted_at);
       const ids = new Set(visible.map((m) => m.id));
       return clone({
         players: db.players,
         matches: visible,
         match_players: db.match_players.filter((mp) => ids.has(mp.match_id)),
+        seasons: db.seasons,
       });
     },
 
@@ -71,9 +80,12 @@ export function createDemoApi() {
       return () => listeners.delete(callback);
     },
 
-    async signIn(email) {
+    async signInWithPin(pin) {
+      checkPin(pin);
       await delay();
-      session = { email: email || 'admin@demo' };
+      const role = Object.keys(DEMO_PINS).find((key) => DEMO_PINS[key] === pin);
+      if (!role) throw new AppError('PIN incorreto.');
+      session = { email: PIN_ACCOUNTS[role] };
       writeStorage(SESSION_KEY, session.email);
       listeners.forEach((cb) => cb(session));
     },
@@ -85,7 +97,7 @@ export function createDemoApi() {
     },
 
     async checkAdmin() {
-      return Boolean(session);
+      return sessionIsAdmin();
     },
 
     async addPlayer(name) {
@@ -111,6 +123,25 @@ export function createDemoApi() {
       }
       if (patch.active !== undefined) player.active = Boolean(patch.active);
       persist();
+    },
+
+    async addSeason(season) {
+      requireAdmin();
+      const name = season.name.trim();
+      const total = Number(season.total_matches);
+      if (!name || name.length > 40) throw new AppError('O nome tem de ter entre 1 e 40 caracteres.');
+      if (!Number.isInteger(total) || total < 1 || total > 200) {
+        throw new AppError('O número de jogos tem de estar entre 1 e 200.');
+      }
+      if (db.seasons.some((s) => s.name.trim().toLowerCase() === name.toLowerCase())) {
+        throw new AppError('Já existe uma época com esse nome.');
+      }
+      const row = {
+        id: uid(), name, total_matches: total, starts_on: season.starts_on, created_at: new Date().toISOString(),
+      };
+      db.seasons.push(row);
+      persist();
+      return clone(row);
     },
 
     async saveMatch(match, players) {
@@ -166,6 +197,12 @@ export function createDemoApi() {
       persist();
     },
 
+    async confirmAll(matchId) {
+      requireAdmin();
+      for (const row of db.match_players) if (row.match_id === matchId) row.confirmed = true;
+      persist();
+    },
+
     async setMatchDeleted(matchId, deleted) {
       requireAdmin();
       const match = db.matches.find((m) => m.id === matchId);
@@ -187,17 +224,19 @@ export function createDemoApi() {
       for (const mp of backup.match_players) {
         upsert(db.match_players, mp, (a, b) => a.match_id === b.match_id && a.player_id === b.player_id);
       }
+      for (const s of backup.seasons) upsert(db.seasons, s, (a, b) => a.id === b.id);
       persist();
       return {
         players: backup.players.length,
         matches: backup.matches.length,
         match_players: backup.match_players.length,
+        seasons: backup.seasons.length,
       };
     },
 
     // Demo only: start over with fresh sample data.
     async resetDemo() {
-      db = buildSeed();
+      db = { ...buildSeed(), seasons: [] };
       persist();
     },
   };
