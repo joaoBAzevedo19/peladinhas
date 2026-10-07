@@ -1,0 +1,30 @@
+# The free Supabase plan pauses projects after a week without database
+# activity (e.g. during holidays). This makes a tiny read twice a week so
+# the project stays active. Uses the same two repository variables as the
+# deploy workflow; the key is the public (publishable) one.
+name: Manter o Supabase ativo
+
+on:
+  schedule:
+    - cron: '17 7 * * 1,4' # Mondays and Thursdays, 07:17 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Read one row
+        env:
+          URL: ${{ vars.VITE_SUPABASE_URL }}
+          KEY: ${{ vars.VITE_SUPABASE_KEY }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$KEY" ]; then
+            echo "Variables VITE_SUPABASE_URL / VITE_SUPABASE_KEY are not set."
+            exit 1
+          fi
+          curl --fail --silent --show-error \
+            -H "apikey: $KEY" \
+            "$URL/rest/v1/matches?select=id&limit=1" > /dev/null
+          echo "Supabase respondeu."
