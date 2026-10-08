@@ -7,7 +7,7 @@ import { formatMonthYear, monthKey } from '../lib/dates.js';
 import { listSeasons, playerSummary, seasonKeyOf } from '../lib/stats.js';
 
 export default function History({ query }) {
-  const { matches, lineupsByMatch, playersById, players, seasons: registered } = useData();
+  const { matches, lineupsByMatch, playersById, players, seasons: registered, overallChanges } = useData();
   const [season, setSeason] = useState(query.epoca || '');
   const [playerId, setPlayerId] = useState(query.jogador || '');
 
@@ -43,6 +43,7 @@ export default function History({ query }) {
 
   const summary = playerId ? playerSummary(playerId, filtered, lineupsByMatch) : null;
   const selectedName = playerId ? playersById.get(playerId)?.name : null;
+  const ovrChanges = playerId ? overallChanges.get(playerId) : null;
   // Players who appear in at least one line-up (active ones first).
   const options = players.filter((p) => p.active || matches.some((m) => (lineupsByMatch.get(m.id) || []).some((e) => e.player_id === p.id)));
 
@@ -98,6 +99,7 @@ export default function History({ query }) {
                   lineup={lineupsByMatch.get(m.id) || []}
                   playersById={playersById}
                   focusPlayerId={playerId || null}
+                  overallChange={ovrChanges?.get(m.id)}
                 />
               ))}
             </div>

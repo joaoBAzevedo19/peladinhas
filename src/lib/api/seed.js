@@ -2,6 +2,7 @@
 // Wednesday matches and the next two matches. Dates are relative to the
 // first time the demo is opened.
 import { localInputToIso, nextKickoffInput, zonedParts } from '../dates.js';
+import { OVERALL } from '../config.js';
 
 const NAMES = [
   'André', 'Bruno', 'Carlos', 'Diogo', 'Filipe', 'Gonçalo', 'Hugo',
@@ -41,8 +42,8 @@ export { uid };
 export function buildSeed(now = new Date()) {
   const random = mulberry32(20261007);
   const created = now.toISOString();
-  const players = NAMES.map((name) => ({ id: uid(), name, active: true, created_at: created }));
-  players.push({ id: uid(), name: 'Ricardo', active: false, created_at: created });
+  const players = NAMES.map((name) => ({ id: uid(), name, active: true, overall: OVERALL.default, created_at: created }));
+  players.push({ id: uid(), name: 'Ricardo', active: false, overall: OVERALL.default, created_at: created });
 
   const matches = [];
   const match_players = [];

@@ -332,6 +332,42 @@ abbr[title] {
   margin-bottom: 12px;
 }
 
+.teams-averages {
+  margin-top: -4px;
+}
+
+.draw-methods {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.draw-method {
+  display: grid;
+  gap: 2px;
+  min-height: 44px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+}
+
+.draw-method:active {
+  background: var(--press);
+}
+
+.draw-method-label {
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.draw-method-help {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
 .footnote {
   margin-top: 14px;
   font-size: 13px;
@@ -625,6 +661,26 @@ button.row:active {
 
 .focus-goals {
   font-size: 12px;
+}
+
+.ovr-change {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.ovr-change abbr {
+  text-decoration: none;
+}
+
+.ovr-change.is-up {
+  color: var(--win-ink);
+}
+
+.ovr-change.is-down {
+  color: var(--loss-ink);
 }
 
 .row-awaiting {
@@ -1113,8 +1169,8 @@ textarea::placeholder {
   text-overflow: ellipsis;
 }
 
-.standings td:not(.c-rank):not(.c-pts),
-.standings thead th:not(.c-rank):not(.c-name):not(.c-pts) {
+.standings td:not(.c-rank):not(.c-pts):not(.c-ovr),
+.standings thead th:not(.c-rank):not(.c-name):not(.c-pts):not(.c-ovr) {
   width: 36px;
   min-width: 32px;
 }
@@ -1128,6 +1184,16 @@ textarea::placeholder {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 21px;
+}
+
+.standings .c-ovr {
+  color: var(--ink-2);
+  border-left: 1px solid var(--line);
+}
+
+.standings th.c-ovr,
+.standings td.c-ovr {
+  width: 44px;
 }
 
 .standings tr.is-leader {
@@ -1637,6 +1703,31 @@ textarea::placeholder {
   font-weight: 600;
 }
 
+.prow-who {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.prow-stat {
+  flex: none;
+  font-size: 13px;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.prow-stat abbr {
+  text-decoration: none;
+}
+
+.prow-stat-num {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
 .prow-goals {
   display: flex;
   flex-wrap: wrap;
@@ -1706,14 +1797,55 @@ textarea::placeholder {
   text-align: left;
 }
 
-.inline-edit {
-  display: flex;
-  gap: 6px;
-  width: 100%;
+.admin-player-name .overall-badge {
+  display: inline-block;
+  min-width: 30px;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: 1px;
 }
 
-.inline-edit input {
+.inline-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 0;
+}
+
+.inline-edit-fields {
+  display: flex;
+  flex: 1 1 100%;
+  gap: 6px;
+}
+
+.inline-edit-fields input {
   flex: 1;
+  min-width: 0;
+}
+
+.inline-edit-fields .overall-input {
+  flex: 0 0 72px;
+  text-align: center;
+}
+
+.inline-edit-help {
+  flex: 1 1 100%;
+  margin: 0;
+}
+
+.inline-edit-actions {
+  display: flex;
+  flex: 1 1 100%;
+  justify-content: flex-end;
+  gap: 6px;
 }
 
 /* ---------- Bottom navigation ---------- */

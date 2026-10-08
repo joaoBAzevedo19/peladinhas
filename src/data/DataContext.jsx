@@ -4,6 +4,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api/index.js';
 import { friendlyError } from '../lib/api/errors.js';
+import { computeOverallTimeline } from '../lib/stats.js';
 
 const DataContext = createContext(null);
 
@@ -109,7 +110,12 @@ export function DataProvider({ children }) {
     }
     const locations = [...new Set(visibleMatches.map((m) => m.location).filter(Boolean))].reverse();
     const seasons = data.seasons ?? [];
-    return { players, playersById, matches: visibleMatches, allMatches: matches, deletedMatches, lineupsByMatch, locations, seasons };
+    // Current OVR of every player and its change per match (deleted matches never count).
+    const { overalls, changes: overallChanges } = computeOverallTimeline({ players, matches: visibleMatches, lineupsByMatch });
+    return {
+      players, playersById, matches: visibleMatches, allMatches: matches, deletedMatches, lineupsByMatch, locations, seasons, overalls,
+      overallChanges,
+    };
   }, [data]);
 
   const value = {

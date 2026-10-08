@@ -23,6 +23,12 @@ create table if not exists public.players (
   created_at  timestamptz not null default now()
 );
 
+-- Overall rating, shown in the standings for information only. Added after
+-- the table existed, hence alter table (create table does not change it).
+alter table public.players
+  add column if not exists overall smallint not null default 50
+  constraint players_overall_check check (overall between 1 and 99);
+
 -- Two players cannot share the same name (case-insensitive).
 create unique index if not exists players_name_key on public.players (lower(btrim(name)));
 
@@ -243,12 +249,20 @@ begin
     raise exception 'Sem permissão para restaurar cópias.' using errcode = '42501';
   end if;
 
-  insert into public.players (id, name, active, created_at)
-  select r.id, btrim(r.name), coalesce(r.active, true), coalesce(r.created_at, now())
+  insert into public.players (id, name, active, overall, created_at)
+  select r.id, btrim(r.name), coalesce(r.active, true), coalesce(r.overall, 50),
+         coalesce(r.created_at, now())
   from jsonb_populate_recordset(null::public.players, coalesce(p_data -> 'players', '[]')) as r
   on conflict (id) do update
     set name = excluded.name, active = excluded.active;
   get diagnostics v_players = row_count;
+
+  -- Copies made before the overall existed have none: keep the current one.
+  update public.players p
+     set overall = (x ->> 'overall')::smallint
+    from jsonb_array_elements(coalesce(p_data -> 'players', '[]')) as x
+   where p.id = (x ->> 'id')::uuid
+     and nullif(x ->> 'overall', '') is not null;
 
   insert into public.match_revisions (match_id, snapshot, saved_by)
   select m.id, public.match_snapshot(m.id), auth.uid()

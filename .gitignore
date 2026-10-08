@@ -1,7 +1,27 @@
 node_modules
 dist
-.env
-.env.local
-.env.*.local
+coverage
 .DS_Store
+Thumbs.db
 *.log
+
+# Environment files: only the empty templates are public
+.env
+.env.*
+!.env.example
+!.env.demo
+
+# Database backups downloaded from the Admin page (real players' data)
+peladinhas-copia-*.json
+
+# Supabase CLI local state
+supabase/.temp
+supabase/.branches
+
+# Keys and certificates
+*.pem
+*.key
+
+# Editor settings
+.vscode
+.idea

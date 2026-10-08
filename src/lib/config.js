@@ -13,6 +13,25 @@ export const LOCALE = 'pt-PT';
 // Default kick-off for new matches: Wednesday (3) at 21:00.
 export const DEFAULT_KICKOFF = { weekday: 3, hour: 21, minute: 0 };
 
+// Player overall rating (OVR): shown in the standings for information only
+// (it does not change points or ordering). Each player starts at an initial
+// value (default 50, editable by the admin) and every played match moves it
+// by OVERALL_RULES, always kept between min and max.
+export const OVERALL = { default: 50, min: 1, max: 99 };
+
+// OVR change per played match (missing a match changes nothing).
+// bigMargin: goal difference from which the whole winning/losing team gets
+// bigWin/bigLoss on top of the win/loss.
+export const OVERALL_RULES = {
+  win: 2,
+  draw: 0,
+  loss: -3,
+  goal: 1,
+  bigMargin: 6,
+  bigWin: 2,
+  bigLoss: -3,
+};
+
 // Number of players per match (5 vs 5), used for the confirmation slots.
 export const PLAYERS_PER_MATCH = 10;
 

@@ -43,7 +43,18 @@ export function UpcomingRow({ match, lineup }) {
   );
 }
 
-export function PlayedRow({ match, lineup, playersById, focusPlayerId }) {
+// OVR change of the focused player in one match: green when up, red when down.
+function OverallChange({ change }) {
+  const sign = change > 0 ? '+' : change < 0 ? '−' : '±';
+  const tone = change > 0 ? 'is-up' : change < 0 ? 'is-down' : '';
+  return (
+    <span className={`ovr-change ${tone}`} title="Variação do OVR neste jogo">
+      {sign}{Math.abs(change)} <abbr title="Overall">OVR</abbr>
+    </span>
+  );
+}
+
+export function PlayedRow({ match, lineup, playersById, focusPlayerId, overallChange }) {
   const cancelled = match.status === 'cancelled';
   const focus = focusPlayerId ? lineup.find((e) => e.player_id === focusPlayerId) : null;
   const focusResult = focus ? resultForTeam(match, focus.team) : null;
@@ -74,6 +85,7 @@ export function PlayedRow({ match, lineup, playersById, focusPlayerId }) {
           <span className="focus-stat">
             <ResultBadge result={focusResult} />
             {focus.goals > 0 && <span className="focus-goals">{focus.goals} {focus.goals === 1 ? 'golo' : 'golos'}</span>}
+            {overallChange != null && <OverallChange change={overallChange} />}
           </span>
         )}
         <ChevronRight />

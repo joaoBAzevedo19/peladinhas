@@ -2,7 +2,8 @@
 // this browser (localStorage). Used when no Supabase keys are configured.
 import { buildSeed, uid } from './seed.js';
 import { AppError } from './errors.js';
-import { PIN_ACCOUNTS } from '../config.js';
+import { OVERALL, PIN_ACCOUNTS } from '../config.js';
+import { isValidOverall } from '../stats.js';
 import { checkPin } from './pin.js';
 
 const STORAGE_KEY = 'peladinhas-demo-v1';
@@ -43,6 +44,8 @@ export function createDemoApi() {
     writeStorage(STORAGE_KEY, JSON.stringify(db));
   }
   db.seasons ??= [];
+  // Data saved before the overall existed (mirrors the column default).
+  for (const p of db.players) p.overall ??= OVERALL.default;
 
   let session = readStorage(SESSION_KEY) ? { email: readStorage(SESSION_KEY) } : null;
   const listeners = new Set();
@@ -105,7 +108,9 @@ export function createDemoApi() {
       const clean = name.trim();
       if (!clean || clean.length > 40) throw new AppError('O nome tem de ter entre 1 e 40 caracteres.');
       if (nameTaken(clean)) throw new AppError('Já existe um jogador com esse nome.');
-      const player = { id: uid(), name: clean, active: true, created_at: new Date().toISOString() };
+      const player = {
+        id: uid(), name: clean, active: true, overall: OVERALL.default, created_at: new Date().toISOString(),
+      };
       db.players.push(player);
       persist();
       return clone(player);
@@ -120,6 +125,12 @@ export function createDemoApi() {
         if (!clean || clean.length > 40) throw new AppError('O nome tem de ter entre 1 e 40 caracteres.');
         if (nameTaken(clean, id)) throw new AppError('Já existe um jogador com esse nome.');
         player.name = clean;
+      }
+      if (patch.overall !== undefined) {
+        if (!isValidOverall(patch.overall)) {
+          throw new AppError(`O overall tem de estar entre ${OVERALL.min} e ${OVERALL.max}.`);
+        }
+        player.overall = patch.overall;
       }
       if (patch.active !== undefined) player.active = Boolean(patch.active);
       persist();
@@ -217,7 +228,13 @@ export function createDemoApi() {
         if (index >= 0) list[index] = { ...list[index], ...row };
         else list.push(row);
       };
-      for (const p of backup.players) upsert(db.players, p, (a, b) => a.id === b.id);
+      for (const p of backup.players) {
+        // Copies made before the overall existed: keep the current one (or the default).
+        const row = { ...p };
+        if (!isValidOverall(row.overall)) delete row.overall;
+        upsert(db.players, row, (a, b) => a.id === b.id);
+      }
+      for (const p of db.players) p.overall ??= OVERALL.default;
       for (const m of backup.matches) upsert(db.matches, m, (a, b) => a.id === b.id);
       const restored = new Set(backup.matches.map((m) => m.id));
       db.match_players = db.match_players.filter((mp) => !restored.has(mp.match_id));

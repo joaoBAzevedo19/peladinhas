@@ -7,15 +7,30 @@ import { signOut } from '../lib/api/index.js';
 import { friendlyError } from '../lib/api/errors.js';
 import { buildBackup, downloadJson, getLastBackup, parseBackup, setLastBackup } from '../lib/backup.js';
 import { formatDate, formatDateTime, formatWeekday } from '../lib/dates.js';
+import { isValidOverall, playerOverall } from '../lib/stats.js';
+import { OVERALL } from '../lib/config.js';
 
-function PlayerRow({ player, run }) {
+// current = OVR after all matches; the admin edits the initial OVR.
+function PlayerRow({ player, current, run }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(player.name);
+  const initial = playerOverall(player);
+  const [overall, setOverall] = useState(String(initial));
+  const overallNumber = Number(overall);
 
-  const saveName = async () => {
-    if (name.trim() === player.name) return setEditing(false);
+  const startEditing = () => {
+    setName(player.name);
+    setOverall(String(initial));
+    setEditing(true);
+  };
+
+  const save = async () => {
+    const patch = {};
+    if (name.trim() !== player.name) patch.name = name;
+    if (overallNumber !== initial) patch.overall = overallNumber;
+    if (!Object.keys(patch).length) return setEditing(false);
     try {
-      await run((a) => a.updatePlayer(player.id, { name }), 'Nome atualizado.');
+      await run((a) => a.updatePlayer(player.id, patch), `${name.trim()} atualizado.`);
       setEditing(false);
     } catch {
       // Shown in the toast.
@@ -29,19 +44,41 @@ function PlayerRow({ player, run }) {
           className="inline-edit"
           onSubmit={(e) => {
             e.preventDefault();
-            saveName();
+            save();
           }}
         >
-          <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} aria-label="Nome do jogador" autoFocus />
-          <button type="submit" className="btn btn-primary btn-sm">Guardar</button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setName(player.name); setEditing(false); }}>
-            Cancelar
-          </button>
+          <div className="inline-edit-fields">
+            <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} aria-label="Nome do jogador" autoFocus />
+            <input
+              type="number"
+              inputMode="numeric"
+              className="overall-input"
+              min={OVERALL.min}
+              max={OVERALL.max}
+              step={1}
+              value={overall}
+              onChange={(e) => setOverall(e.target.value)}
+              aria-label={`OVR inicial (${OVERALL.min} a ${OVERALL.max})`}
+              title={`OVR inicial (${OVERALL.min} a ${OVERALL.max})`}
+            />
+          </div>
+          <p className="field-help inline-edit-help">
+            OVR inicial ({OVERALL.min} a {OVERALL.max}): o valor de partida, antes dos jogos. OVR atual: {current}.
+          </p>
+          <div className="inline-edit-actions">
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditing(false)}>
+              Cancelar
+            </button>
+            <button type="submit" className="btn btn-primary btn-sm" disabled={!name.trim() || !isValidOverall(overallNumber)}>
+              Guardar
+            </button>
+          </div>
         </form>
       ) : (
         <>
-          <button type="button" className="admin-player-name" onClick={() => setEditing(true)} title="Mudar o nome">
+          <button type="button" className="admin-player-name" onClick={startEditing} title="Mudar o nome ou o OVR inicial">
             {player.name}
+            <span className="overall-badge" aria-label={`OVR ${current}`}>{current}</span>
           </button>
           <button
             type="button"
@@ -62,7 +99,7 @@ function PlayerRow({ player, run }) {
   );
 }
 
-function Players({ players, run }) {
+function Players({ players, overalls, run }) {
   const [name, setName] = useState('');
   const active = players.filter((p) => p.active);
   const inactive = players.filter((p) => !p.active);
@@ -98,14 +135,14 @@ function Players({ players, run }) {
         </button>
       </form>
       <p className="hint">
-        Toca num nome para o mudar. Um jogador inativo deixa de aparecer nas convocatórias, mas o histórico dele mantém-se.
+        O número ao lado do nome é o OVR atual. Toca num nome para mudar o nome ou o OVR inicial. Um jogador inativo deixa de aparecer nas convocatórias, mas o histórico dele mantém-se.
       </p>
       <ul className="list admin-players">
         {active.map((p) => (
-          <PlayerRow key={p.id} player={p} run={run} />
+          <PlayerRow key={p.id} player={p} current={overalls.get(p.id) ?? playerOverall(p)} run={run} />
         ))}
         {inactive.map((p) => (
-          <PlayerRow key={p.id} player={p} run={run} />
+          <PlayerRow key={p.id} player={p} current={overalls.get(p.id) ?? playerOverall(p)} run={run} />
         ))}
       </ul>
     </section>
@@ -225,7 +262,7 @@ function DeletedMatches({ matches, run }) {
 }
 
 export default function Admin() {
-  const { session, isAdmin, players, deletedMatches, raw, run, showToast, mode } = useData();
+  const { session, isAdmin, players, overalls, deletedMatches, raw, run, showToast, mode } = useData();
 
   return (
     <div className="page">
@@ -245,7 +282,7 @@ export default function Admin() {
             Entraste como <strong>administrador</strong>.{' '}
             <button type="button" className="link" onClick={signOut}>Sair</button>
           </p>
-          <Players players={players} run={run} />
+          <Players players={players} overalls={overalls} run={run} />
           <Backups raw={raw} run={run} showToast={showToast} mode={mode} />
           <DeletedMatches matches={deletedMatches} run={run} />
         </>

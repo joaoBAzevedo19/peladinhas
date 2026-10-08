@@ -5,7 +5,7 @@ import { PageHeader, Empty, Dialog } from '../components/ui.jsx';
 import { PlusIcon } from '../components/Icons.jsx';
 import { computeStandings, isPlayed, listSeasons, seasonKeyOf } from '../lib/stats.js';
 import { currentSeason, dateKey } from '../lib/dates.js';
-import { POINTS } from '../lib/config.js';
+import { OVERALL, OVERALL_RULES as R, POINTS } from '../lib/config.js';
 import { navigate } from '../hooks/useHashRoute.js';
 
 // Pop-up form for "+ Nova época". Calls onCreated with the new season.
@@ -86,7 +86,7 @@ function NewSeasonForm({ run, onCreated, onCancel }) {
 }
 
 export default function Standings() {
-  const { matches, lineupsByMatch, playersById, seasons: registered, isAdmin, run } = useData();
+  const { matches, lineupsByMatch, playersById, overalls, seasons: registered, isAdmin, run } = useData();
   const seasons = listSeasons(matches, registered);
   const today = dateKey(new Date());
   // Default: the latest registered season that has started, otherwise the
@@ -105,6 +105,7 @@ export default function Standings() {
     playersById,
     season: selected === 'all' ? null : selected || null,
     seasons: registered,
+    overalls,
   });
   const playedInSeason = selectedSeason?.total_matches
     ? matches.filter((m) => isPlayed(m) && seasonKeyOf(m, registered) === selected).length
@@ -162,6 +163,7 @@ export default function Standings() {
                 <th scope="col"><abbr title="Empates">E</abbr></th>
                 <th scope="col"><abbr title="Derrotas">D</abbr></th>
                 <th scope="col"><abbr title="Golos">G</abbr></th>
+                <th scope="col" className="c-ovr"><abbr title="Overall (só informativo)">OVR</abbr></th>
               </tr>
             </thead>
             <tbody>
@@ -183,6 +185,7 @@ export default function Standings() {
                   <td>{r.draws}</td>
                   <td>{r.losses}</td>
                   <td>{r.goals}</td>
+                  <td className="c-ovr">{r.overall}</td>
                 </tr>
               ))}
             </tbody>
@@ -193,6 +196,14 @@ export default function Standings() {
       <p className="footnote">
         Vitória {POINTS.win} pontos, empate {POINTS.draw}, derrota {POINTS.loss}, para cada jogador da equipa.
         Em caso de igualdade, conta o número de vitórias e depois os golos. Autogolos não contam como golos.
+        O OVR é só informativo e não conta para a classificação.
+      </p>
+      <p className="footnote">
+        OVR: cada jogador começa em {OVERALL.default} (ou no valor inicial definido pelo administrador) e muda
+        a cada jogo que joga: vitória +{R.win}, empate {R.draw}, derrota {R.loss} e +{R.goal} por golo. Faltar
+        a um jogo não muda o OVR. Ganhar por {R.bigMargin} ou mais golos dá mais +{R.bigWin} a toda a equipa; perder por{' '}
+        {R.bigMargin} ou mais tira mais {Math.abs(R.bigLoss)}. Acumula ao longo de todas as épocas, entre{' '}
+        {OVERALL.min} e {OVERALL.max}.
         Toca num jogador para ver os jogos dele.
       </p>
 

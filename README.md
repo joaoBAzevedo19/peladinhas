@@ -81,7 +81,7 @@ Nota: com uma conta GitHub gratuita, o repositório tem de ser público para usa
 
 1. **Marcar o jogo:** *Jogos > Novo jogo*. A data vem preenchida com a próxima quarta-feira às 21:00 e os convocados do último jogo.
 2. **Confirmações:** abre o jogo e toca no nome de quem confirmou.
-3. **Equipas:** quando todos os convocados confirmarem, o botão *Gerar equipas* fica ativo. Carrega em *Sortear equipas* para dividir os jogadores ao acaso em duas equipas do mesmo tamanho (com número ímpar, uma fica com mais um), ou põe cada jogador na equipa A ou B à mão. Podes sortear de novo ou acertar à mão antes de carregar em *Confirmar equipas*. O jogo passa a mostrar as equipas (podes mudá-las em *Alterar equipas*). Se convocares alguém novo depois disso, voltas a ter de gerar as equipas.
+3. **Equipas:** quando todos os convocados confirmarem, o botão *Gerar equipas* fica ativo. Carrega em *Sortear equipas* e escolhe o método: *Aleatória* (ao acaso), *Por rating* (a média de OVR das duas equipas fica o mais próxima possível) ou *Por eficácia* (a média de golos por jogo na época do jogo fica o mais próxima possível; quem ainda não jogou nessa época conta como 0). Depois de um sorteio por rating, cada jogador mostra o seu OVR e cada equipa a média de OVR; por eficácia, cada jogador mostra os golos que marcou na época. As equipas ficam sempre do mesmo tamanho (com número ímpar, uma fica com mais um). Também podes pôr cada jogador na equipa A ou B à mão. Podes sortear de novo ou acertar à mão antes de carregar em *Confirmar equipas*. O jogo passa a mostrar as equipas (podes mudá-las em *Alterar equipas*). Se convocares alguém novo depois disso, voltas a ter de gerar as equipas.
 4. **Depois do jogo:** *Registar resultado* (as equipas já vêm preenchidas), indica os golos e guarda. A classificação atualiza-se sozinha.
 5. **Cópia de segurança:** *Gerir > Descarregar cópia* e guarda o ficheiro (por exemplo no Google Drive). A app lembra-te se passarem mais de 7 dias.
 
@@ -102,6 +102,10 @@ Definidas em [`src/lib/config.js`](src/lib/config.js):
 | Vitória / empate / derrota | 3 / 1 / 0 pontos, para cada jogador da equipa |
 | Presença | Conta quando o jogador está numa equipa de um jogo jogado |
 | Golos | Por jogador; autogolos ficam registados à parte e não contam como golos |
+| OVR (overall) | Só informativo: aparece na classificação mas não mexe nos pontos nem na ordem. Cada jogador começa num OVR inicial (50 por defeito, editável em *Gerir > Jogadores*) e acumula ao longo de todas as épocas, sempre entre 1 e 99 |
+| OVR por jogo | Vitória +2, empate 0, derrota −3, +1 por golo (autogolos não contam). Faltar a um jogo (não convocado ou convocado sem equipa) não muda o OVR |
+| OVR por goleada | Ganhar por 6 ou mais golos: +2 extra para toda a equipa. Perder por 6 ou mais: −3 extra |
+| OVR no histórico | Ao filtrar o *Histórico* por um jogador, cada jogo mostra a variação de OVR desse jogo: a verde se subiu, a vermelho se desceu. É a variação real: quem já está em 99 (ou em 1) mostra ±0 |
 | Época | De setembro a agosto (ex.: 2026/27); a classificação tem também "Todas as épocas" |
 | Desempate | Pontos, depois vitórias, depois golos |
 | Resultado | O resultado introduzido decide os pontos; se não bater certo com os golos individuais, a app avisa |
